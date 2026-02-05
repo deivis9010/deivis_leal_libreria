@@ -1,25 +1,37 @@
 
-def call(Map config = [:]) {
-    
-    def abortPipeline = config.get('abortPipeline', false)
 
+def call(Map config = [:]) {
    
+    def abortManual = config.get('abortPipeline', false)
+    
+    
+    //env.BRANCH_NAME de Jenkins
+    def branchName = env.BRANCH_NAME ?: ""
+
+    echo "Rama detectada: ${branchName}"
+
     timeout(time: 5, unit: 'MINUTES') {
         script {
-            echo "Iniciando análisis estático..."
-            
-            
             withSonarQubeEnv('Sonar Local') { 
                 sh 'echo "Ejecución de las pruebas de calidad de código"'
             }
 
-            echo "Evaluando Quality Gate..."
-            
-           
-            if (abortPipeline) {
-                error "El Quality Gate ha fallado y abortPipeline es True. Deteniendo ejecución."
-            } else {
-                echo "Quality Gate evaluado. Continuando pipeline (abortPipeline es False)."
+            // LÓGICA DE DECISIÓN (HEURÍSTICA)
+            // Regla 1: Si el argumento manual es True, aborta siempre.
+            if (abortManual) {
+                error "Abortando: Parámetro 'abortPipeline' es True."
+            } 
+            // Regla 2: Si es la rama master, aborta.
+            else if (branchName == "master" || branchName == "main") {
+                error "Abortando: Fallo en Quality Gate detectado en rama protegida (${branchName})."
+            }
+            // Regla 3: Si la rama empieza por 'hotfix', aborta.
+            else if (branchName.startsWith("hotfix")) {
+                error "Abortando: Fallo en Quality Gate detectado en rama de emergencia (${branchName})."
+            }
+            // Regla 4: Cualquier otra cosa, continúa.
+            else {
+                echo "Quality Gate no superado, pero se permite continuar en rama: ${branchName}"
             }
         }
     }
