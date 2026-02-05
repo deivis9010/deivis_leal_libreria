@@ -9,7 +9,7 @@ def call(Map config = [:]) {
             echo "Iniciando análisis estático..."
             
             
-            withSonarQubeEnv('SonarQube') { 
+            withSonarQubeEnv('Sonar Local') { 
                 sh 'echo "Ejecución de las pruebas de calidad de código"'
             }
 
