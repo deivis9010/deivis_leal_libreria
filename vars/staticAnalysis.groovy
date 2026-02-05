@@ -1,46 +1,45 @@
-
-
 def call(Map config = [:]) {
-   
+    // 1. Parámetros y detección de rama
     def abortManual = config.get('abortPipeline', false)
-       
-    
-    // GIT_BRANCH es la variable estándar para pipelines de una sola rama
     def branchName = env.GIT_BRANCH ?: "unknown"
     
-    
-    // Limpieza necesaria: GIT_BRANCH suele devolver 'origin/main' o 'origin/master'
+    // Limpieza de rama (origin/main -> main)
     if (branchName.contains('/')) {
         branchName = branchName.substring(branchName.lastIndexOf('/') + 1)
-    }  
-  
-    branchName = branchName.replace('origin/', '')
-
+    }
+    
     echo "Rama detectada: ${branchName}"
 
+    
+    def scannerHome = tool 'SonarScanner'
+
+   
     timeout(time: 5, unit: 'MINUTES') {
         script {
+            // Ejecución del análisis
             withSonarQubeEnv('Sonar Local') { 
-                sh 'echo "Ejecución de las pruebas de calidad de código"'
+                sh "${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=practica_devops"
             }
 
-            // LÓGICA DE DECISIÓN (HEURÍSTICA)
-            // Regla 1: Si el argumento manual es True, aborta siempre.
-            if (abortManual) {
-                error "Abortando: Parámetro 'abortPipeline' es True."
-            } 
-            // Regla 2: Si es la rama master, aborta.
-            else if (branchName == "master" || branchName == "main") {
-                error "Abortando: Fallo en Quality Gate detectado en rama protegida (${branchName})."
+            
+            echo "Esperando resultados de SonarQube..."
+            def qg = waitForQualityGate() 
+
+            // 4. Lógica de decisión (Heurística)
+            if (abortManual || qg.status != 'OK') {
+                if (qg.status != 'OK') { 
+                    echo "Quality Gate fallido: ${qg.status}" 
+                }
+                
+                // Verificación de ramas críticas o aborto manual
+                if (abortManual || branchName == "master" || branchName == "main" || branchName.startsWith("hotfix")) {
+                    error "Pipeline abortado por calidad insuficiente en rama crítica (${branchName}) o decisión manual."
+                } else {
+                    echo "Quality Gate no es OK, pero se permite continuar en rama: ${branchName}"
+                }
+            } else {
+                echo "Análisis de SonarQube Exitoso (OK)."
             }
-            // Regla 3: Si la rama empieza por 'hotfix', aborta.
-            else if (branchName.startsWith("hotfix")) {
-                error "Abortando: Fallo en Quality Gate detectado en rama de emergencia (${branchName})."
-            }
-            // Regla 4: Cualquier otra cosa, continúa.
-            else {
-                echo "Quality Gate no superado, pero se permite continuar en rama: ${branchName}"
-            }
-        }
-    }
+        } 
+    } 
 }
