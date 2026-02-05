@@ -3,10 +3,12 @@
 def call(Map config = [:]) {
    
     def abortManual = config.get('abortPipeline', false)
+       
+    // BRANCH_NAME o de GIT_BRANCH
+    def branchName = env.BRANCH_NAME ?: env.GIT_BRANCH ?: ""
     
-    
-    //env.BRANCH_NAME de Jenkins
-    def branchName = env.BRANCH_NAME ?: ""
+    // Limpiamos el nombre (a veces GIT_BRANCH trae "origin/main")
+    branchName = branchName.replace('origin/', '')
 
     echo "Rama detectada: ${branchName}"
 
