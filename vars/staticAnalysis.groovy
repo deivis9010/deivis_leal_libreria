@@ -4,8 +4,15 @@ def call(Map config = [:]) {
    
     def abortManual = config.get('abortPipeline', false)
        
-    // BRANCH_NAME o de GIT_BRANCH
-    def branchName = env.BRANCH_NAME ?: env.GIT_BRANCH ?: ""
+    // Captura de variables de entorno nativas según la doc oficial
+    // GIT_BRANCH es la variable estándar para pipelines de una sola rama
+    def branchName = env.GIT_BRANCH ?: env.BRANCH_NAME ?: "unknown"
+     echo "Rama detectada: ${branchName}"
+    
+    // Limpieza necesaria: GIT_BRANCH suele devolver 'origin/main' o 'origin/master'
+    if (branchName.contains('/')) {
+        branchName = branchName.substring(branchName.lastIndexOf('/') + 1)
+    }
     
     // Limpiamos el nombre (a veces GIT_BRANCH trae "origin/main")
     branchName = branchName.replace('origin/', '')
